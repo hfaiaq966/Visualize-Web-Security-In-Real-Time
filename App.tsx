@@ -1,14 +1,15 @@
 import React, { useState, useRef } from 'react';
 import { Moon, Sun, Download, ShieldCheck, Github } from 'lucide-react';
-import { SearchBar } from './components/SearchBar';
-import { CertificateCard } from './components/CertificateCard';
-import { SecurityScore } from './components/SecurityScore';
-import { HttpsVisualizer } from './components/HttpsVisualizer';
-import { ExplanationBox } from './components/ExplanationBox';
-import { fetchCertificateDetails, getAIExplanation } from './services/geminiService';
-import { calculateSecurityScore } from './utils/scoreCalculator';
-import { generatePDF } from './utils/pdfGenerator';
-import { CertificateDetails, SecurityScoreData, ExplanationLevel } from './types';
+// FIX: Added file extensions (.tsx or .ts) to local imports to resolve "Could not resolve" errors.
+import { SearchBar } from './components/SearchBar.tsx';
+import { CertificateCard } from './components/CertificateCard.tsx';
+import { SecurityScore } from './components/SecurityScore.tsx';
+import { HttpsVisualizer } from './components/HttpsVisualizer.tsx';
+import { ExplanationBox } from './components/ExplanationBox.tsx';
+import { fetchCertificateDetails, getAIExplanation } from './services/geminiService.ts';
+import { calculateSecurityScore } from './utils/scoreCalculator.ts';
+import { generatePDF } from './utils/pdfGenerator.ts';
+import { CertificateDetails, SecurityScoreData, ExplanationLevel } from './types.ts';
 
 export default function App() {
   const [darkMode, setDarkMode] = useState(false);
@@ -19,7 +20,6 @@ export default function App() {
   const [visualizerRunning, setVisualizerRunning] = useState(false);
   const [visualizerComplete, setVisualizerComplete] = useState(false);
 
-  // For PDF generation later - we fetch explanation text for the PDF on demand
   const explanationRef = useRef<string>("");
 
   const toggleTheme = () => {
@@ -35,17 +35,18 @@ export default function App() {
     setVisualizerRunning(false);
     setVisualizerComplete(false);
 
-    // 1. Fetch Certificate Data (Simulated via AI)
-    const data = await fetchCertificateDetails(searchDomain);
-    setCertData(data);
+    try {
+      const data = await fetchCertificateDetails(searchDomain);
+      setCertData(data);
 
-    // 2. Calculate Score
-    const score = calculateSecurityScore(data);
-    setScoreData(score);
-
-    // 3. Start Visualization
-    setLoading(false);
-    setVisualizerRunning(true);
+      const score = calculateSecurityScore(data);
+      setScoreData(score);
+    } catch (err) {
+      console.error("Error fetching certificate data:", err);
+    } finally {
+      setLoading(false);
+      setVisualizerRunning(true);
+    }
   };
 
   const handleVisualizerComplete = () => {
@@ -55,10 +56,13 @@ export default function App() {
 
   const handleExportPDF = async () => {
     if (!domain || !certData || !scoreData) return;
-    
-    // Get a text summary for PDF if not already in UI state
-    const summary = await getAIExplanation(domain, ExplanationLevel.Normal);
-    generatePDF(domain, certData, scoreData, summary);
+
+    try {
+      const summary = await getAIExplanation(domain, ExplanationLevel.Normal);
+      generatePDF(domain, certData, scoreData, summary);
+    } catch (err) {
+      console.error("Error generating PDF:", err);
+    }
   };
 
   return (
@@ -72,7 +76,7 @@ export default function App() {
               CertVis Pro
             </span>
           </div>
-          
+
           <div className="flex items-center gap-4">
             {certData && (
               <button
@@ -103,42 +107,48 @@ export default function App() {
           <p className="text-lg text-slate-600 dark:text-slate-400 max-w-2xl mx-auto mb-8">
             Analyze SSL certificates, watch the HTTPS handshake in action, and understand encryption with AI-powered insights.
           </p>
-          
+
           <SearchBar onSearch={handleSearch} isLoading={loading} />
         </div>
 
         {/* Results Section */}
         {certData && scoreData && (
-          <div className="space-y-8 animate-fade-in">
-            
-            {/* 1. Visualizer (Novel Feature) */}
+          <div className="space-y-8 animate-fade-in mb-24">
+            {/* 1. Visualizer */}
             <div className="w-full">
-              <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-200 mb-4">Live Handshake Simulation</h2>
-              <HttpsVisualizer isRunning={visualizerRunning} onComplete={handleVisualizerComplete} />
+              <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-200 mb-4">
+                Live Handshake Simulation
+              </h2>
+              <HttpsVisualizer
+                isRunning={visualizerRunning}
+                onComplete={handleVisualizerComplete}
+                darkMode={darkMode}
+              />
             </div>
 
             {/* 2. Analysis Grid */}
-            <div className={`grid grid-cols-1 lg:grid-cols-2 gap-8 transition-opacity duration-700 ${visualizerComplete ? 'opacity-100' : 'opacity-50 blur-sm'}`}>
+            <div className={`grid grid-cols-1 lg:grid-cols-2 gap-8 pb-10 transition-opacity duration-700 ${visualizerComplete ? 'opacity-100' : 'opacity-50 blur-sm'}`}>
               <CertificateCard data={certData} />
+
               <div className="space-y-8">
                 <SecurityScore scoreData={scoreData} />
-                {domain && <ExplanationBox domain={domain} />}
+                {domain && (
+                  <div>
+                    <ExplanationBox domain={domain} />
+                    {/* The single, desired copyright label placed directly under the AI Analyst box */}
+                    <div className="mt-4 text-center">
+                      <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
+                        © 2025 CertVis Pro. Educational Security Tool. Open Source Student Project
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
-
           </div>
         )}
       </main>
-
-      {/* Footer */}
-      <footer className="border-t border-slate-200 dark:border-slate-800 py-8 mt-12 bg-white dark:bg-darker">
-        <div className="container mx-auto px-4 text-center text-slate-500 dark:text-slate-400">
-          <p className="mb-2">© {new Date().getFullYear()} CertVis Pro. Educational Security Tool.</p>
-          <p className="text-sm flex justify-center items-center gap-2">
-            <Github size={14} /> Open Source Student Project
-          </p>
-        </div>
-      </footer>
+      {/* The minimal footer content was removed as per your request to only show the text under the AI box. */}
     </div>
   );
 }
